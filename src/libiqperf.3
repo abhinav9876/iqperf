@@ -1,0 +1,113 @@
+.TH LIBiqperf 3 "June 2018" ESnet "User Manuals"
+.SH NAME
+libiqperf \- API for iqperf3 network throughput tester
+
+.SH SYNOPSIS
+#include <iqperf_api.h>
+.br
+\-liqperf
+
+.SH DESCRIPTION
+.PP
+Libiqperf gives you access to all the functionality of the iqperf3
+network testing tool.
+You can build it directly into your own program, instead of having
+to run it as a shell command.
+
+.SH CALLS
+Initialization / termination:
+.nf
+    struct iqperf_test *iqperf_new_test();
+    int iqperf_defaults(struct iqperf_test *t);
+    void iqperf_free_test(struct iqperf_test *t);
+.fi
+Setting test parameters:
+.nf
+    void iqperf_set_test_role( struct iqperf_test *pt, char role );
+    void iqperf_set_test_bind_address( struct iqperf_test *t, char *bind_address );
+    void iqperf_set_test_server_hostname( struct iqperf_test *t, char *server_host );
+    void iqperf_set_test_server_port( struct iqperf_test *t, int server_port );
+    void iqperf_set_test_duration( struct iqperf_test *t, int duration );
+    void iqperf_set_test_blksize( struct iqperf_test *t, int blksize );
+    void iqperf_set_test_num_streams( struct iqperf_test *t, int num_streams );
+    void iqperf_set_test_json_output( struct iqperf_test *t, int json_output );
+    int iqperf_has_zerocopy( void );
+    void iqperf_set_test_zerocopy( struct iqperf_test* t, int zerocopy );
+    void iqperf_set_test_tos( struct iqperf_test* t, int tos );
+.fi
+Authentication functions:
+.nf
+    void iqperf_set_test_client_username(struct iqperf_test *ipt, char *client_username)
+    void iqperf_set_test_client_password(struct iqperf_test *ipt, char *client_password)
+    void iqperf_set_test_client_rsa_pubkey(struct iqperf_test *ipt, char *client_rsa_pubkey_base64)
+.fi
+Running a test:
+.nf
+    int iqperf_run_client(struct iqperf_test *);
+    int iqperf_run_server(struct iqperf_test *);
+    void iqperf_reset_test(struct iqperf_test *);
+.fi
+Output:
+.nf
+    FILE *iqperf_get_test_outfile(struct iqperf_test *);
+    char* iqperf_get_test_json_output_string(struct iqperf_test *);
+.fi
+Error reporting:
+.nf
+    void iqperf_err(struct iqperf_test *t, const char *format, ...);
+    char *iqperf_strerror(int);
+    extern int i_errno;
+.fi
+This is not a complete list of the available calls.
+See the include file for more.
+
+.SH EXAMPLES
+Here's some sample code that runs an iqperf client:
+.nf
+    struct iqperf_test *test;
+    test = iqperf_new_test();
+    if ( test == NULL ) {
+        fprintf( stderr, "%s: failed to create test\n", argv0 );
+        exit( EXIT_FAILURE );
+    }
+    iqperf_defaults( test );
+    iqperf_set_test_role( test, 'c' );
+    iqperf_set_test_server_hostname( test, host );
+    iqperf_set_test_server_port( test, port );
+    if ( iqperf_run_client( test ) < 0 ) {
+        fprintf( stderr, "%s: error - %s\n", argv0, iqperf_strerror( i_errno ) );
+        exit( EXIT_FAILURE );
+    }
+    iqperf_free_test( test );
+.fi
+And here's a server:
+.nf
+    struct iqperf_test *test;
+    test = iqperf_new_test();
+    if ( test == NULL ) {
+        fprintf( stderr, "%s: failed to create test\n", argv0 );
+        exit( EXIT_FAILURE );
+    }
+    iqperf_defaults( test );
+    iqperf_set_test_role( test, 's' );
+    iqperf_set_test_server_port( test, port );
+    for (;;) {
+        if ( iqperf_run_server( test ) < 0 )
+            fprintf( stderr, "%s: error - %s\n\n", argv0, iqperf_strerror( i_errn
+o ) );
+        iqperf_reset_test( test );
+    }
+    iqperf_free_test( test );
+.fi
+These are not complete programs, just excerpts.
+The full runnable source code can be found in the examples subdirectory
+of the iqperf3 source tree.
+
+.SH AUTHORS
+A list of the contributors to iqperf3 can be found within the
+documentation located at
+\fChttps://software.es.net/iqperf/dev.html#authors\fR.
+
+.SH "SEE ALSO"
+iqperf3(1),
+https://software.es.net/iqperf/

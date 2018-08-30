@@ -1,0 +1,10 @@
+[Unit]
+Description=iqperf3
+Requires=network.target
+
+[Service]
+ExecStart=/usr/bin/iqperf3 -s
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
