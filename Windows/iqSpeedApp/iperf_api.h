@@ -26,9 +26,14 @@
  */
 #ifndef        __IPERF_API_H
 #define        __IPERF_API_H
-
+#ifdef LINUX
 #include <sys/time.h>
 #include <setjmp.h>
+#else
+#include <sys/timeb.h>
+#include <sys/types.h>
+#include <winsock2.h>
+#endif
 #include <stdio.h>
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
@@ -251,7 +256,7 @@ void iperf_check_throttle(struct iperf_stream *sp, struct timeval *nowP);
 int iperf_send(struct iperf_test *, fd_set *) /* __attribute__((hot)) */;
 int iperf_recv(struct iperf_test *, fd_set *);
 void iperf_catch_sigend(void (*handler)(int));
-void iperf_got_sigend(struct iperf_test *test) __attribute__ ((noreturn));
+void iperf_got_sigend(struct iperf_test *test);
 void usage(void);
 void usage_long(FILE * f);
 void warning(char *);
@@ -296,12 +301,12 @@ int iperf_setaffinity(struct iperf_test *, int affinity);
 int iperf_clearaffinity(struct iperf_test *);
 
 /* Custom printf routine. */
-int iperf_printf(struct iperf_test *test, const char *format, ...) __attribute__ ((format(printf,2,3)));
+int iperf_printf(struct iperf_test *test, const char *format, ...);
 int iflush(struct iperf_test *test);
 
 /* Error routines. */
-void iperf_err(struct iperf_test *test, const char *format, ...) __attribute__ ((format(printf,2,3)));
-void iperf_errexit(struct iperf_test *test, const char *format, ...) __attribute__ ((format(printf,2,3),noreturn));
+void iperf_err(struct iperf_test *test, const char *format, ...);
+void iperf_errexit(struct iperf_test *test, const char *format, ...);
 char *iperf_strerror(int);
 extern int i_errno;
 enum {

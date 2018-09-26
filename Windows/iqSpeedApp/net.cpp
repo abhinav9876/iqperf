@@ -1,40 +1,18 @@
-/*
- * iperf, Copyright (c) 2014-2018, The Regents of the University of
- * California, through Lawrence Berkeley National Laboratory (subject
- * to receipt of any required approvals from the U.S. Dept. of
- * Energy).  All rights reserved.
- *
- * If you have questions about your rights to use or distribute this
- * software, please contact Berkeley Lab's Technology Transfer
- * Department at TTD@lbl.gov.
- *
- * NOTICE.  This software is owned by the U.S. Department of Energy.
- * As such, the U.S. Government has been granted for itself and others
- * acting on its behalf a paid-up, nonexclusive, irrevocable,
- * worldwide license in the Software to reproduce, prepare derivative
- * works, and perform publicly and display publicly.  Beginning five
- * (5) years after the date permission to assert copyright is obtained
- * from the U.S. Department of Energy, and subject to any subsequent
- * five (5) year renewals, the U.S. Government is granted for itself
- * and others acting on its behalf a paid-up, nonexclusive,
- * irrevocable, worldwide license in the Software to reproduce,
- * prepare derivative works, distribute copies to the public, perform
- * publicly and display publicly, and to permit others to do so.
- *
- * This code is distributed under a BSD style license, see the LICENSE
- * file for complete information.
- */
 #include "iperf_config.h"
 
 #include <stdio.h>
-#include <unistd.h>
 #include <errno.h>
+#ifdef LINUX
 #include <sys/socket.h>
-#include <sys/types.h>
+#include <unistd.h>
 #include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <assert.h>
 #include <netdb.h>
+#include <netinet/tcp.h>
+#else
+#endif
+
+#include <sys/types.h>
+#include <assert.h>
 #include <string.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -72,10 +50,12 @@ int
 timeout_connect(int s, const struct sockaddr *name, socklen_t namelen,
     int timeout)
 {
+	int ret;
+#ifdef LINUX
 	struct pollfd pfd;
 	socklen_t optlen;
 	int flags, optval;
-	int ret;
+	
 
 	flags = 0;
 	if (timeout != -1) {
@@ -104,6 +84,7 @@ timeout_connect(int s, const struct sockaddr *name, socklen_t namelen,
 	if (timeout != -1 && fcntl(s, F_SETFL, flags) == -1)
 		ret = -1;
 
+#endif
 	return (ret);
 }
 
@@ -115,6 +96,8 @@ timeout_connect(int s, const struct sockaddr *name, socklen_t namelen,
 int
 netdial(int domain, int proto, char *local, int local_port, char *server, int port, int timeout)
 {
+	int ret = -1;
+#ifdef LINUX
     struct addrinfo hints, *local_res, *server_res;
     int s, saved_errno;
 
@@ -205,6 +188,8 @@ netdial(int domain, int proto, char *local, int local_port, char *server, int po
 
     freeaddrinfo(server_res);
     return s;
+#endif
+	return ret;
 }
 
 /***************************************************************/
@@ -212,6 +197,9 @@ netdial(int domain, int proto, char *local, int local_port, char *server, int po
 int
 netannounce(int domain, int proto, char *local, int port)
 {
+	int ret = -1;
+#ifdef LINUX
+
     struct addrinfo hints, *res;
     char portstr[6];
     int s, opt, saved_errno;
@@ -301,6 +289,8 @@ netannounce(int domain, int proto, char *local, int port)
     }
 
     return s;
+#endif
+	return ret;
 }
 
 
@@ -311,6 +301,8 @@ netannounce(int domain, int proto, char *local, int port)
 int
 Nread(int fd, char *buf, size_t count, int prot)
 {
+	int ret = -1;
+#ifdef LINUX
     register ssize_t r;
     register size_t nleft = count;
 
@@ -328,6 +320,8 @@ Nread(int fd, char *buf, size_t count, int prot)
         buf += r;
     }
     return count - nleft;
+#endif
+	return ret;
 }
 
 
@@ -338,6 +332,8 @@ Nread(int fd, char *buf, size_t count, int prot)
 int
 Nwrite(int fd, const char *buf, size_t count, int prot)
 {
+	int ret = -1;
+#ifdef LINUX
     register ssize_t r;
     register size_t nleft = count;
 
@@ -364,6 +360,8 @@ Nwrite(int fd, const char *buf, size_t count, int prot)
 	buf += r;
     }
     return count;
+#endif
+	return ret;
 }
 
 
@@ -449,6 +447,8 @@ Nsendfile(int fromfd, int tofd, const char *buf, size_t count)
 int
 setnonblocking(int fd, int nonblocking)
 {
+	int ret = -1;
+#ifdef LINUX
     int flags, newflags;
 
     flags = fcntl(fd, F_GETFL, 0);
@@ -465,7 +465,10 @@ setnonblocking(int fd, int nonblocking)
 	    perror("fcntl(F_SETFL)");
 	    return -1;
 	}
+
     return 0;
+#endif
+	return ret;
 }
 
 /****************************************************************************/
@@ -473,6 +476,8 @@ setnonblocking(int fd, int nonblocking)
 int
 getsockdomain(int sock)
 {
+	int ret = -1;
+#ifdef LINUX
     struct sockaddr_storage sa;
     socklen_t len = sizeof(sa);
 
@@ -480,4 +485,6 @@ getsockdomain(int sock)
         return -1;
     }
     return ((struct sockaddr *) &sa)->sa_family;
+#endif
+	return ret;
 }

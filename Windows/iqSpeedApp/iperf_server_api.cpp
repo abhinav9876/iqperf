@@ -1,51 +1,30 @@
-/*
- * iperf, Copyright (c) 2014-2018 The Regents of the University of
- * California, through Lawrence Berkeley National Laboratory (subject
- * to receipt of any required approvals from the U.S. Dept. of
- * Energy).  All rights reserved.
- *
- * If you have questions about your rights to use or distribute this
- * software, please contact Berkeley Lab's Technology Transfer
- * Department at TTD@lbl.gov.
- *
- * NOTICE.  This software is owned by the U.S. Department of Energy.
- * As such, the U.S. Government has been granted for itself and others
- * acting on its behalf a paid-up, nonexclusive, irrevocable,
- * worldwide license in the Software to reproduce, prepare derivative
- * works, and perform publicly and display publicly.  Beginning five
- * (5) years after the date permission to assert copyright is obtained
- * from the U.S. Department of Energy, and subject to any subsequent
- * five (5) year renewals, the U.S. Government is granted for itself
- * and others acting on its behalf a paid-up, nonexclusive,
- * irrevocable, worldwide license in the Software to reproduce,
- * prepare derivative works, distribute copies to the public, perform
- * publicly and display publicly, and to permit others to do so.
- *
- * This code is distributed under a BSD style license, see the LICENSE
- * file for complete information.
- */
-/* iperf_server_api.c: Functions to be used by an iperf server
-*/
-
+#include "pch.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <getopt.h>
 #include <errno.h>
-#include <unistd.h>
+#include <sys/types.h>
+
 #include <assert.h>
 #include <fcntl.h>
+#ifdef LINUX
 #include <sys/socket.h>
-#include <sys/types.h>
+#include <unistd.h>
+#include <getopt.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sched.h>
+#else
+#include "sys\time.h"
+
+#endif
+
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 #include <setjmp.h>
 
 #include "iperf.h"
@@ -76,7 +55,7 @@ iperf_server_listen(struct iperf_test *test)
 	    ** kernel does not actually do IPv6.  This is not too unusual,
 	    ** v6 support is and perhaps always will be spotty.
 	    */
-	    warning("this system does not seem to support IPv6 - trying IPv4");
+	    warning((char *)"this system does not seem to support IPv6 - trying IPv4");
 	    test->settings->domain = AF_INET;
 	    goto retry;
 	} else {
@@ -104,6 +83,7 @@ iperf_server_listen(struct iperf_test *test)
 int
 iperf_accept(struct iperf_test *test)
 {
+#ifdef LINUX
     int s;
     signed char rbuf = ACCESS_DENIED;
     socklen_t len;
@@ -145,7 +125,7 @@ iperf_accept(struct iperf_test *test)
         }
         close(s);
     }
-
+#endif
     return 0;
 }
 
@@ -156,7 +136,7 @@ iperf_handle_message_server(struct iperf_test *test)
 {
     int rval;
     struct iperf_stream *sp;
-
+	signed char oldstate = 0;
     // XXX: Need to rethink how this behaves to fit API
     if ((rval = Nread(test->ctrl_sck, (char*) &test->state, sizeof(signed char), Ptcp)) <= 0) {
         if (rval == 0) {
@@ -199,7 +179,7 @@ iperf_handle_message_server(struct iperf_test *test)
 
 	    // Temporarily be in DISPLAY_RESULTS phase so we can get
 	    // ending summary statistics.
-	    signed char oldstate = test->state;
+	    oldstate = test->state;
 	    cpu_util(test->cpu_util);
 	    test->state = DISPLAY_RESULTS;
 	    test->reporter_callback(test);
@@ -210,7 +190,9 @@ iperf_handle_message_server(struct iperf_test *test)
             SLIST_FOREACH(sp, &test->streams, streams) {
                 FD_CLR(sp->socket, &test->read_set);
                 FD_CLR(sp->socket, &test->write_set);
+
                 close(sp->socket);
+
             }
             test->state = IPERF_DONE;
             break;
@@ -225,7 +207,7 @@ iperf_handle_message_server(struct iperf_test *test)
 static void
 server_timer_proc(TimerClientData client_data, struct timeval *nowP)
 {
-    struct iperf_test *test = client_data.p;
+    struct iperf_test *test = (struct iperf_test *)  client_data.p;
     struct iperf_stream *sp;
 
     test->timer = NULL;
@@ -245,7 +227,7 @@ server_timer_proc(TimerClientData client_data, struct timeval *nowP)
 static void
 server_stats_timer_proc(TimerClientData client_data, struct timeval *nowP)
 {
-    struct iperf_test *test = client_data.p;
+    struct iperf_test *test = (struct iperf_test *)  client_data.p;
 
     if (test->done)
         return;
@@ -256,7 +238,7 @@ server_stats_timer_proc(TimerClientData client_data, struct timeval *nowP)
 static void
 server_reporter_timer_proc(TimerClientData client_data, struct timeval *nowP)
 {
-    struct iperf_test *test = client_data.p;
+    struct iperf_test *test = (struct iperf_test *)  client_data.p;
 
     if (test->done)
         return;
@@ -306,7 +288,7 @@ create_server_timers(struct iperf_test * test)
 static void
 server_omit_timer_proc(TimerClientData client_data, struct timeval *nowP)
 {   
-    struct iperf_test *test = client_data.p;
+    struct iperf_test *test = (struct iperf_test *) client_data.p;
 
     test->omit_timer = NULL;
     test->omitting = 0;

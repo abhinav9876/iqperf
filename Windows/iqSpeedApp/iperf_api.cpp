@@ -1,60 +1,43 @@
-/*
- * iperf, Copyright (c) 2014-2018, The Regents of the University of
- * California, through Lawrence Berkeley National Laboratory (subject
- * to receipt of any required approvals from the U.S. Dept. of
- * Energy).  All rights reserved.
- *
- * If you have questions about your rights to use or distribute this
- * software, please contact Berkeley Lab's Technology Transfer
- * Department at TTD@lbl.gov.
- *
- * NOTICE.  This software is owned by the U.S. Department of Energy.
- * As such, the U.S. Government has been granted for itself and others
- * acting on its behalf a paid-up, nonexclusive, irrevocable,
- * worldwide license in the Software to reproduce, prepare derivative
- * works, and perform publicly and display publicly.  Beginning five
- * (5) years after the date permission to assert copyright is obtained
- * from the U.S. Department of Energy, and subject to any subsequent
- * five (5) year renewals, the U.S. Government is granted for itself
- * and others acting on its behalf a paid-up, nonexclusive,
- * irrevocable, worldwide license in the Software to reproduce,
- * prepare derivative works, distribute copies to the public, perform
- * publicly and display publicly, and to permit others to do so.
- *
- * This code is distributed under a BSD style license, see the LICENSE file
- * for complete information.
- */
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
-#define __USE_GNU
 
+#include "pch.h"
 #include "iperf_config.h"
+
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef LINUX
 #include <time.h>
-#include <getopt.h>
+#else
+#include "sys\times.h"
+#endif
 #include <errno.h>
 #include <signal.h>
-#include <unistd.h>
+#include <sys/types.h>
 #include <assert.h>
 #include <fcntl.h>
+#ifdef LINUX
 #include <sys/socket.h>
-#include <sys/types.h>
+#include <unistd.h>
+#include <getopt.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
 #include <netinet/tcp.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
 #include <sched.h>
+#endif
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+
+#include <sys/stat.h>
+
 #include <setjmp.h>
 #include <stdarg.h>
 
@@ -64,14 +47,16 @@
 #endif /* HAVE_CPUSET_SETAFFINITY */
 
 #if defined(HAVE_SETPROCESSAFFINITYMASK)
-#include <Windows.h>
+//#include <Windows.h>
 #endif /* HAVE_SETPROCESSAFFINITYMASK */
 
 #include "net.h"
 #include "iperf.h"
 #include "iperf_api.h"
+#ifdef LINUX
 #include "iperf_udp.h"
 #include "iperf_tcp.h"
+#endif 
 #if defined(HAVE_SCTP)
 #include "iperf_sctp.h"
 #endif /* HAVE_SCTP */
@@ -115,7 +100,7 @@ usage_long(FILE *f)
 }
 
 
-void warning(char *str)
+void warning(const char *str)
 {
     fprintf(stderr, "warning: %s\n", str);
 }
@@ -628,7 +613,7 @@ iperf_on_test_start(struct iperf_test *test)
 static void
 mapped_v4_to_regular_v4(char *str)
 {
-    char *prefix = "::ffff:";
+    const char *prefix = "::ffff:";
     int prefix_len;
 
     prefix_len = strlen(prefix);
@@ -641,6 +626,7 @@ mapped_v4_to_regular_v4(char *str)
 void
 iperf_on_connect(struct iperf_test *test)
 {
+#ifdef LINUX
     time_t now_secs;
     const char* rfc1123_fmt = "%a, %d %b %Y %H:%M:%S GMT";
     char now_str[100];
@@ -704,6 +690,9 @@ iperf_on_connect(struct iperf_test *test)
         }
 
     }
+#else 
+	printf("Need to implement for windows");
+#endif
 }
 
 void
@@ -1424,7 +1413,7 @@ iperf_init_test(struct iperf_test *test)
 static void
 send_timer_proc(TimerClientData client_data, struct timeval *nowP)
 {
-    struct iperf_stream *sp = client_data.p;
+    struct iperf_stream *sp = (struct iperf_stream *)  client_data.p;
 
     /* All we do here is set or clear the flag saying that this stream may
     ** be sent to.  The actual sending gets done in the send proc, after
@@ -1489,6 +1478,7 @@ int test_is_authorized(struct iperf_test *test){
 int
 iperf_exchange_parameters(struct iperf_test *test)
 {
+#ifdef LINUX
     int s;
     int32_t err;
 
@@ -1540,6 +1530,7 @@ iperf_exchange_parameters(struct iperf_test *test)
             return -1;
 
     }
+#endif
 
     return 0;
 }
@@ -1780,7 +1771,7 @@ send_results(struct iperf_test *test)
 		}
 
 		/* Allocate and build it up from the component lines */
-		char *output = calloc(buflen + 1, 1);
+		char *output = (char *) calloc(buflen + 1, 1);
 		TAILQ_FOREACH(t, &(test->server_output_list), textlineentries) {
 		    strncat(output, t->line, buflen);
 		    buflen -= strlen(t->line);
@@ -2061,12 +2052,12 @@ JSON_read(int fd)
  */
 
 void
-add_to_interval_list(struct iperf_stream_result * rp, struct iperf_interval_results * new)
+add_to_interval_list(struct iperf_stream_result * rp, struct iperf_interval_results * anew)
 {
     struct iperf_interval_results *irp;
 
     irp = (struct iperf_interval_results *) malloc(sizeof(struct iperf_interval_results));
-    memcpy(irp, new, sizeof(struct iperf_interval_results));
+    memcpy(irp, anew, sizeof(struct iperf_interval_results));
     TAILQ_INSERT_TAIL(&rp->interval_results, irp, irlistentries);
 }
 
@@ -2084,7 +2075,7 @@ connect_msg(struct iperf_stream *sp)
 {
     char ipl[INET6_ADDRSTRLEN], ipr[INET6_ADDRSTRLEN];
     int lport, rport;
-
+#ifdef LINUX
     if (getsockdomain(sp->socket) == AF_INET) {
         inet_ntop(AF_INET, (void *) &((struct sockaddr_in *) &sp->local_addr)->sin_addr, ipl, sizeof(ipl));
 	mapped_v4_to_regular_v4(ipl);
@@ -2105,6 +2096,7 @@ connect_msg(struct iperf_stream *sp)
         cJSON_AddItemToArray(sp->test->json_connected, iperf_json_printf("socket: %d  local_host: %s  local_port: %d  remote_host: %s  remote_port: %d", (int64_t) sp->socket, ipl, (int64_t) lport, ipr, (int64_t) rport));
     else
 	iperf_printf(sp->test, report_connected, sp->socket, ipl, lport, ipr, rport);
+#endif
 }
 
 
@@ -2144,7 +2136,7 @@ protocol_new(void)
 {
     struct protocol *proto;
 
-    proto = malloc(sizeof(struct protocol));
+    proto = (struct protocol *) malloc(sizeof(struct protocol));
     if(!proto) {
         return NULL;
     }
@@ -2217,7 +2209,7 @@ iperf_defaults(struct iperf_test *testp)
         return -1;
 
     tcp->id = Ptcp;
-    tcp->name = "TCP";
+    tcp->name = (char *) "TCP";
     tcp->accept = iperf_tcp_accept;
     tcp->listen = iperf_tcp_listen;
     tcp->connect = iperf_tcp_connect;
@@ -2233,7 +2225,7 @@ iperf_defaults(struct iperf_test *testp)
     }
 
     udp->id = Pudp;
-    udp->name = "UDP";
+    udp->name = (char *) "UDP";
     udp->accept = iperf_udp_accept;
     udp->listen = iperf_udp_listen;
     udp->connect = iperf_udp_connect;
@@ -2633,7 +2625,7 @@ iperf_print_intermediate(struct iperf_test *test)
 	    double interval_len = timeval_diff(&irp->interval_start_time,
 					       &irp->interval_end_time);
 	    if (test->debug) {
-		printf("interval_len %f bytes_transferred %" PRIu64 "\n", interval_len, irp->bytes_transferred);
+     		printf("interval_len %f bytes_transferred %" PRIu64 "\n", interval_len, irp->bytes_transferred);
 	    }
 
 	    /*
@@ -3323,7 +3315,7 @@ iperf_new_stream(struct iperf_test *test, int s)
             tempdir = getenv("TMP");
         }
         if (tempdir == 0){
-            tempdir = "/tmp";
+            tempdir = (char *) "/tmp";
         }
         snprintf(template, sizeof(template) / sizeof(char), "%s/iperf3.XXXXXX", tempdir);
     }

@@ -1,30 +1,4 @@
-/*
- * iperf, Copyright (c) 2014-2018, The Regents of the University of
- * California, through Lawrence Berkeley National Laboratory (subject
- * to receipt of any required approvals from the U.S. Dept. of
- * Energy).  All rights reserved.
- *
- * If you have questions about your rights to use or distribute this
- * software, please contact Berkeley Lab's Technology Transfer
- * Department at TTD@lbl.gov.
- *
- * NOTICE.  This software is owned by the U.S. Department of Energy.
- * As such, the U.S. Government has been granted for itself and others
- * acting on its behalf a paid-up, nonexclusive, irrevocable,
- * worldwide license in the Software to reproduce, prepare derivative
- * works, and perform publicly and display publicly.  Beginning five
- * (5) years after the date permission to assert copyright is obtained
- * from the U.S. Department of Energy, and subject to any subsequent
- * five (5) year renewals, the U.S. Government is granted for itself
- * and others acting on its behalf a paid-up, nonexclusive,
- * irrevocable, worldwide license in the Software to reproduce,
- * prepare derivative works, distribute copies to the public, perform
- * publicly and display publicly, and to permit others to do so.
- *
- * This code is distributed under a BSD style license, see the LICENSE file
- * for complete information.
- */
-
+#include "pch.h"
 #include "iperf_config.h"
 
 #include <string.h>
@@ -34,8 +8,9 @@
 /* FreeBSD needs _WITH_GETLINE to enable the getline() declaration */
 #define _WITH_GETLINE
 #include <stdio.h>
+#ifdef LIUNX
 #include <termios.h>
-
+#endif
 #if defined(HAVE_SSL)
 
 #include <openssl/rsa.h>
@@ -287,6 +262,7 @@ int decode_auth_setting(int enable_debug, char *authtoken, EVP_PKEY *private_key
 #endif //HAVE_SSL
 
 ssize_t iperf_getpass (char **lineptr, size_t *n, FILE *stream) {
+#ifdef LINUX
     struct termios old, new;
     ssize_t nread;
 
@@ -316,6 +292,8 @@ ssize_t iperf_getpass (char **lineptr, size_t *n, FILE *stream) {
     }
 
     return nread;
+#endif
+	return -1;
 }
 
 
