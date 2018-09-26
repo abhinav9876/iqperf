@@ -1,41 +1,19 @@
-/*
- * iperf, Copyright (c) 2014-2018, The Regents of the University of
- * California, through Lawrence Berkeley National Laboratory (subject
- * to receipt of any required approvals from the U.S. Dept. of
- * Energy).  All rights reserved.
- *
- * If you have questions about your rights to use or distribute this
- * software, please contact Berkeley Lab's Technology Transfer
- * Department at TTD@lbl.gov.
- *
- * NOTICE.  This software is owned by the U.S. Department of Energy.
- * As such, the U.S. Government has been granted for itself and others
- * acting on its behalf a paid-up, nonexclusive, irrevocable,
- * worldwide license in the Software to reproduce, prepare derivative
- * works, and perform publicly and display publicly.  Beginning five
- * (5) years after the date permission to assert copyright is obtained
- * from the U.S. Department of Energy, and subject to any subsequent
- * five (5) year renewals, the U.S. Government is granted for itself
- * and others acting on its behalf a paid-up, nonexclusive,
- * irrevocable, worldwide license in the Software to reproduce,
- * prepare derivative works, distribute copies to the public, perform
- * publicly and display publicly, and to permit others to do so.
- *
- * This code is distributed under a BSD style license, see the LICENSE
- * file for complete information.
- */
+#include "pch.h"
 #include <errno.h>
 #include <setjmp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+
 #include <signal.h>
 #include <sys/types.h>
+#ifdef LINUX
 #include <netinet/in.h>
 #include <sys/select.h>
+#include <unistd.h>
 #include <sys/uio.h>
 #include <arpa/inet.h>
+#endif
 
 #include "iperf.h"
 #include "iperf_api.h"
@@ -118,7 +96,7 @@ iperf_create_streams(struct iperf_test *test)
 static void
 test_timer_proc(TimerClientData client_data, struct timeval *nowP)
 {
-    struct iperf_test *test = client_data.p;
+    struct iperf_test *test = (struct iperf_test *) client_data.p;
 
     test->timer = NULL;
     test->done = 1;
@@ -127,7 +105,7 @@ test_timer_proc(TimerClientData client_data, struct timeval *nowP)
 static void
 client_stats_timer_proc(TimerClientData client_data, struct timeval *nowP)
 {
-    struct iperf_test *test = client_data.p;
+    struct iperf_test *test = (struct iperf_test *) client_data.p;
 
     if (test->done)
         return;
@@ -138,7 +116,7 @@ client_stats_timer_proc(TimerClientData client_data, struct timeval *nowP)
 static void
 client_reporter_timer_proc(TimerClientData client_data, struct timeval *nowP)
 {
-    struct iperf_test *test = client_data.p;
+    struct iperf_test *test = (struct iperf_test *) client_data.p;
 
     if (test->done)
         return;
@@ -186,7 +164,7 @@ create_client_timers(struct iperf_test * test)
 static void
 client_omit_timer_proc(TimerClientData client_data, struct timeval *nowP)
 {
-    struct iperf_test *test = client_data.p;
+    struct iperf_test *test = (struct iperf_test *) client_data.p;
 
     test->omit_timer = NULL;
     test->omitting = 0;
@@ -231,8 +209,10 @@ iperf_handle_message_client(struct iperf_test *test)
 {
     int rval;
     int32_t err;
+	signed char oldstate = 0;
 
     /*!!! Why is this read() and not Nread()? */
+#ifdef LINUX
     if ((rval = read(test->ctrl_sck, (char*) &test->state, sizeof(signed char))) <= 0) {
         if (rval == 0) {
             i_errno = IECTRLCLOSE;
@@ -242,6 +222,7 @@ iperf_handle_message_client(struct iperf_test *test)
             return -1;
         }
     }
+#endif
 
     switch (test->state) {
         case PARAM_EXCHANGE:
@@ -285,7 +266,7 @@ iperf_handle_message_client(struct iperf_test *test)
 	     * Temporarily be in DISPLAY_RESULTS phase so we can get
 	     * ending summary statistics.
 	     */
-	    signed char oldstate = test->state;
+	    oldstate = test->state;
 	    cpu_util(test->cpu_util);
 	    test->state = DISPLAY_RESULTS;
 	    test->reporter_callback(test);
@@ -320,6 +301,7 @@ iperf_handle_message_client(struct iperf_test *test)
 int
 iperf_connect(struct iperf_test *test)
 {
+#ifdef LINUX
     FD_ZERO(&test->read_set);
     FD_ZERO(&test->write_set);
 
@@ -407,7 +389,7 @@ iperf_connect(struct iperf_test *test)
 	    warning(str);
 	}
     }
-
+#endif
     return 0;
 }
 
@@ -415,23 +397,26 @@ iperf_connect(struct iperf_test *test)
 int
 iperf_client_end(struct iperf_test *test)
 {
+
     struct iperf_stream *sp;
 
     /* Close all stream sockets */
+#ifdef LINUX
     SLIST_FOREACH(sp, &test->streams, streams) {
         close(sp->socket);
     }
+#endif
 
     /* show final summary */
     test->reporter_callback(test);
 
     if (iperf_set_send_state(test, IPERF_DONE) != 0)
         return -1;
-
+#ifdef LINUX
     /* Close control socket */
     if (test->ctrl_sck)
         close(test->ctrl_sck);
-
+#endif
     return 0;
 }
 

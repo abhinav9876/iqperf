@@ -33,7 +33,7 @@ extern "C"
 
 #define cJSON_IsReference 256
 #define cJSON_StringIsConst 512
-#include "windows_port.h"
+
 /* The cJSON structure: */
 typedef struct cJSON
 {

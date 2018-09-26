@@ -1,5 +1,5 @@
 /* src/iperf_config.h.in.  Generated from configure.ac by autoheader.  */
-
+#include "windows_port.h"
 /* Define to 1 if you have the `cpuset_setaffinity' function. */
 #undef HAVE_CPUSET_SETAFFINITY
 
